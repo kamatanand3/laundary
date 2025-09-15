@@ -9,5 +9,6 @@ r.post('/otp/verify', authController.verifyOtp);
 
 // admin password login
 r.post('/admin/login', authController.adminLogin);
+r.post('/logout', authController.logout);
 
 export default r;

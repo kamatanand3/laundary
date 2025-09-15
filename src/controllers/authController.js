@@ -25,6 +25,7 @@ export const authController = {
     try {
       const role = (req.body.role||'user').toLowerCase();
       const { value, error } = emailSchema.keys({ code: Joi.string().length(Number(process.env.OTP_DIGITS||6)).required() }).validate(req.body);
+      console.log(value, error);
       if (error) return res.status(400).json({ error: error.message });
       const { email, code } = value;
 
@@ -54,4 +55,12 @@ export const authController = {
       res.json({ ok: true, role: 'admin', ...tokens });
     } catch (e){ next(e); }
   },
+
+  // POST /api/auth/logout
+  async logout(req, res, next){
+    try {
+      await AuthService.logout(req.user.id);
+      res.json({ ok: true });
+    } catch (e){ next(e); }
+  }
 };

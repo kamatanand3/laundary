@@ -1,10 +1,13 @@
-import express from "express";
-import dotenv from "dotenv";
-dotenv.config();
+// server.js
+import { env } from "./config/env.js";   // loads PORT, DB config, etc.
+import app from "./app.js";
+import { assertDbConnection } from "./config/db.js";
 
-const app = express();
-app.use(express.json());
-app.get("/health", (_req, res) => res.json({ ok: true }));
+(async () => {
+  await assertDbConnection(); // check DB before starting server
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`API running on http://127.0.0.1:${PORT}`));
+  const PORT = env.port || 4000;
+  app.listen(PORT, () => {
+    console.log(`🚀 API running at http://127.0.0.1:${PORT}`);
+  });
+})();

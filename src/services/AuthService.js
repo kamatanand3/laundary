@@ -38,5 +38,12 @@ export const AuthService = {
     const ok = await bcryptCompare(password, admin.password_hash);
     if (!ok) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     return this.issueTokens({ id: admin.admin_id, role: 'admin' });
-  }
+  },
+
+    async logout(userId){
+        // For JWT, typically we don't store sessions server-side.
+        // To "logout", the client simply discards the tokens.
+        // Optionally, we could implement a token blacklist here.
+        return true;
+    }
 };
