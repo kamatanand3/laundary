@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model addresses {
+  address_id                                   String    @id @db.Char(36)
+  user_id                                      String    @db.Char(36)
+  label                                        String?   @db.VarChar(50)
+  line1                                        String    @db.VarChar(255)
+  line2                                        String?   @db.VarChar(255)
+  city                                         String?   @db.VarChar(100)
+  state                                        String?   @db.VarChar(100)
+  pincode                                      String?   @db.VarChar(20)
+  lat                                          Decimal?  @db.Decimal(10, 7)
+  lng                                          Decimal?  @db.Decimal(10, 7)
+  is_default                                   Boolean?  @default(false)
+  created_at                                   DateTime? @default(now()) @db.Timestamp(0)
+  users                                        users     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_addr_user")
+  orders_orders_delivery_address_idToaddresses orders[]  @relation("orders_delivery_address_idToaddresses")
+  orders_orders_pickup_address_idToaddresses   orders[]  @relation("orders_pickup_address_idToaddresses")
+
+  @@index([user_id], map: "idx_user")
+}
+
+model admins {
+  admin_id      String    @id @db.Char(36)
+  name          String    @db.VarChar(100)
+  email         String    @unique(map: "email")
+  password_hash String    @db.VarChar(255)
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+}
+
+model delivery_staff {
+  staff_id     String                 @id @db.Char(36)
+  name         String                 @db.VarChar(100)
+  phone_number String?                @unique(map: "phone_number") @db.VarChar(20)
+  email        String?                @unique(map: "email")
+  status       delivery_staff_status? @default(inactive)
+  created_at   DateTime?              @default(now()) @db.Timestamp(0)
+  orders       orders[]
+}
+
+model order_status_events {
+  id         BigInt                     @id @default(autoincrement())
+  order_id   String                     @db.Char(36)
+  status     order_status_events_status
+  note       String?                    @db.VarChar(255)
+  staff_id   String?                    @db.Char(36)
+  created_at DateTime?                  @default(now()) @db.Timestamp(0)
+  orders     orders                     @relation(fields: [order_id], references: [order_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ose_order")
+
+  @@index([order_id], map: "idx_order")
+}
+
+model orders {
+  order_id                                        String                 @id @db.Char(36)
+  user_id                                         String                 @db.Char(36)
+  staff_id                                        String?                @db.Char(36)
+  pickup_address_id                               String                 @db.Char(36)
+  delivery_address_id                             String                 @db.Char(36)
+  items                                           Json
+  pickup_time                                     DateTime               @db.DateTime(0)
+  delivery_time                                   DateTime?              @db.DateTime(0)
+  status                                          orders_status?         @default(pending)
+  price_total                                     Decimal?               @default(0.00) @db.Decimal(10, 2)
+  payment_option                                  orders_payment_option? @default(cod)
+  created_at                                      DateTime?              @default(now()) @db.Timestamp(0)
+  order_status_events                             order_status_events[]
+  addresses_orders_delivery_address_idToaddresses addresses              @relation("orders_delivery_address_idToaddresses", fields: [delivery_address_id], references: [address_id], onUpdate: NoAction, map: "fk_ord_delivery")
+  addresses_orders_pickup_address_idToaddresses   addresses              @relation("orders_pickup_address_idToaddresses", fields: [pickup_address_id], references: [address_id], onUpdate: NoAction, map: "fk_ord_pickup")
+  delivery_staff                                  delivery_staff?        @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "fk_ord_staff")
+  users                                           users                  @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ord_user")
+
+  @@index([delivery_address_id], map: "fk_ord_delivery")
+  @@index([pickup_address_id], map: "fk_ord_pickup")
+  @@index([staff_id], map: "idx_staff")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model otp_codes {
+  id           BigInt                 @id @default(autoincrement())
+  subject_type otp_codes_subject_type
+  email        String?
+  phone_number String?                @db.VarChar(20)
+  code_hash    String                 @db.VarChar(255)
+  expires_at   DateTime               @db.DateTime(0)
+  attempts     Int?                   @default(0) @db.TinyInt
+  sent_count   Int?                   @default(1) @db.TinyInt
+  ip           String?                @db.VarChar(45)
+  consumed_at  DateTime?              @db.DateTime(0)
+  created_at   DateTime?              @default(now()) @db.Timestamp(0)
+
+  @@index([email], map: "idx_email")
+  @@index([phone_number], map: "idx_phone")
+}
+
+model refresh_tokens {
+  id           BigInt                      @id @default(autoincrement())
+  subject_type refresh_tokens_subject_type
+  subject_id   String                      @db.Char(36)
+  token_hash   String                      @db.VarChar(255)
+  expires_at   DateTime                    @db.DateTime(0)
+  revoked      Boolean?                    @default(false)
+  created_at   DateTime?                   @default(now()) @db.Timestamp(0)
+
+  @@index([subject_type, subject_id], map: "idx_subject")
+}
+
+model users {
+  user_id      String      @id @db.Char(36)
+  name         String      @db.VarChar(100)
+  phone_number String?     @unique(map: "phone_number") @db.VarChar(20)
+  email        String?     @unique(map: "email")
+  created_at   DateTime?   @default(now()) @db.Timestamp(0)
+  addresses    addresses[]
+  orders       orders[]
+}
+
+enum otp_codes_subject_type {
+  user
+  staff
+}
+
+enum refresh_tokens_subject_type {
+  user
+  staff
+  admin
+}
+
+enum order_status_events_status {
+  pending
+  picked
+  ironing
+  out_for_delivery @map("out-for-delivery")
+  delivered
+  cancelled
+}
+
+enum delivery_staff_status {
+  active
+  inactive
+  on_duty  @map("on-duty")
+}
+
+enum orders_status {
+  pending
+  picked
+  ironing
+  out_for_delivery @map("out-for-delivery")
+  delivered
+  cancelled
+}
+
+enum orders_payment_option {
+  cod
+  online
+}

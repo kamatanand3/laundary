@@ -1,49 +1,63 @@
-import { pool } from '../config/db.js';
+import { prisma } from '../config/prisma.js';
 import { signAccess, signRefresh } from '../utils/jwt.js';
-import { Roles } from '../utils/enums.js';
 import { hash as bcryptHash, compare as bcryptCompare } from '../utils/password.js';
+import { randomUUID } from 'crypto';
 
 export const AuthService = {
-  async ensureUserByEmail(email){
-    const [rows] = await pool.query(`SELECT * FROM users WHERE email=:email`, { email });
-    if (rows.length) return rows[0];
-    const [r] = await pool.query(
-      `INSERT INTO users (user_id, name, email) VALUES (UUID(), '', :email)`, { email }
-    );
-    const [created] = await pool.query(`SELECT * FROM users WHERE email=:email`, { email });
-    return created[0];
+  async ensureUserByEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) throw Object.assign(new Error('Email required'), { status: 400 });
+
+    // users.email is UNIQUE (nullable in schema, but we require here)
+    return prisma.users.upsert({
+      where: { email: normalized },
+      create: {
+        user_id: randomUUID(),
+        name: '',
+        email: normalized,
+      },
+      update: {}, // nothing to change if already exists
+    });
   },
 
-  async ensureStaffByEmail(email){
-    const [rows] = await pool.query(`SELECT * FROM delivery_staff WHERE email=:email`, { email });
-    if (rows.length) return rows[0];
-    const [r] = await pool.query(
-      `INSERT INTO delivery_staff (staff_id, name, email, status) VALUES (UUID(), '', :email, 'inactive')`, { email }
-    );
-    const [created] = await pool.query(`SELECT * FROM delivery_staff WHERE email=:email`, { email });
-    return created[0];
+  async ensureStaffByEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) throw Object.assign(new Error('Email required'), { status: 400 });
+
+    return prisma.delivery_staff.upsert({
+      where: { email: normalized },
+      create: {
+        staff_id: randomUUID(),
+        name: '',
+        email: normalized,
+        status: 'inactive',
+      },
+      update: {},
+    });
   },
 
-  issueTokens(subject){
+  issueTokens(subject) {
+    // subject = { id: <uuid>, role: 'user'|'staff'|'admin' }
     const payload = { id: subject.id, role: subject.role };
     const access = signAccess(payload);
     const refresh = signRefresh(payload);
     return { access, refresh };
   },
 
-  async adminLogin(email, password){
-    const [rows] = await pool.query(`SELECT * FROM admins WHERE email=:email`, { email });
-    if (!rows.length) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
-    const admin = rows[0];
+  async adminLogin(email, password) {
+    const normalized = String(email || '').trim().toLowerCase();
+    const admin = await prisma.admins.findUnique({ where: { email: normalized } });
+    if (!admin) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
+
     const ok = await bcryptCompare(password, admin.password_hash);
     if (!ok) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
+
+    // Tokens with role=admin; id = admins.admin_id
     return this.issueTokens({ id: admin.admin_id, role: 'admin' });
   },
 
-    async logout(userId){
-        // For JWT, typically we don't store sessions server-side.
-        // To "logout", the client simply discards the tokens.
-        // Optionally, we could implement a token blacklist here.
-        return true;
-    }
+  async logout(_userId) {
+    // Stateless JWT logout
+    return true;
+  },
 };
