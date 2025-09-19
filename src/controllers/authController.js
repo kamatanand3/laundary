@@ -62,5 +62,6 @@ export const authController = {
       await AuthService.logout(req.user.id);
       res.json({ ok: true });
     } catch (e){ next(e); }
-  }
+  },
+
 };

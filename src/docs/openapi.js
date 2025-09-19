@@ -185,7 +185,50 @@ const definition = {
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { email: { type: 'string', format: 'email' }, password: { type: 'string' } }, required: ['email','password'] } } } },
         responses: { '200': { description: 'Admin tokens' }, '401': { description: 'Invalid credentials' } }
       }
-    }
+    },
+    // create new admin user code start
+        '/admin/create-admin': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Create new admin (one-time setup)',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', example: 'Super Admin' },
+                  email: { type: 'string', format: 'email', example: 'admin@example.com' },
+                  password: { type: 'string', example: 'Secret123!' }
+                },
+                required: ['name', 'email', 'password']
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Admin created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    name: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                  }
+                }
+              }
+            }
+          },
+          '400': { description: 'Invalid input or admin already exists' }
+        }
+      }
+    },
+
+    // create new admin user code end
   }
 };
 

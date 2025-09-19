@@ -48,7 +48,6 @@ export const AuthService = {
     const normalized = String(email || '').trim().toLowerCase();
     const admin = await prisma.admins.findUnique({ where: { email: normalized } });
     if (!admin) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
-
     const ok = await bcryptCompare(password, admin.password_hash);
     if (!ok) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
 

@@ -11,4 +11,7 @@ r.get('/dashboard', adminController.dashboard);
 r.get('/users', adminController.listUsers);
 r.post('/staff', adminController.upsertStaff);
 
+// Admin creation endpoint
+r.post('/create-admin', adminController.createAdmin);
+
 export default r;

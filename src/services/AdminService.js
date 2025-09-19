@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js';
 import { randomUUID } from 'crypto';
+import { hash as bcryptHash, compare as bcryptCompare } from '../utils/password.js';
 
 export const AdminService = {
   // Same behavior as your original: newest first
@@ -60,4 +61,39 @@ export const AdminService = {
       },
     });
   },
+
+  
+
+  // create new admin user code start
+  async createAdmin({ name, email, password }) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized || !password) {
+      throw Object.assign(new Error('Name, email and password are required'), { status: 400 });
+    }
+
+    // check if admin already exists
+    const existing = await prisma.admins.findUnique({ where: { email: normalized } });
+    if (existing) {
+      throw Object.assign(new Error('Admin already exists with this email'), { status: 400 });
+    }
+
+    // hash password
+    const password_hash = await bcryptHash(password, 10);
+
+    const admin = await prisma.admins.create({
+      data: {
+        admin_id: randomUUID(),
+        name,
+        email: normalized,
+        password_hash,
+      },
+    });
+
+    return {
+      id: admin.admin_id,
+      name: admin.name,
+      email: admin.email,
+    };
+  },
+  // create new admin user code end
 };
