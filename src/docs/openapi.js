@@ -9,7 +9,7 @@ const definition = {
     description: 'Express.js MVC + MySQL + Email OTP — Customer, Staff, Admin APIs',
   },
   servers: [
-    { url: `http://localhost:${process.env.PORT || 4000}/api`, description: 'Local' }
+    { url: `http://127.0.0.1:${process.env.PORT || 4000}/api`, description: 'Local' }
   ],
   tags: [
     { name: 'Auth' }, { name: 'Addresses' }, { name: 'Orders' }, { name: 'Staff' }, { name: 'Admin' }
