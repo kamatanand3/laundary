@@ -1,51 +1,101 @@
-import { pool } from '../config/db.js';
-import { OrderStatus } from '../utils/enums.js';
+// src/services/OrderService.js
+import { prisma } from '../config/prisma.js';
+import { OrderStatus } from '../utils/enums.js'; // e.g., { PENDING: 'pending', ... }
+import { randomUUID } from 'crypto';
 
 export const OrderService = {
-  async createOrder(userId, payload){
+  async createOrder(userId, payload) {
     const {
-      pickup_address_id, delivery_address_id, items, pickup_time, payment_option, price_total
+      pickup_address_id,
+      delivery_address_id,
+      items,
+      pickup_time,
+      payment_option,
+      price_total,
     } = payload;
 
-    const [r] = await pool.query(
-      `INSERT INTO orders (order_id, user_id, pickup_address_id, delivery_address_id, items, pickup_time, payment_option, price_total)
-       VALUES (UUID(), :user_id, :pickup_address_id, :delivery_address_id, CAST(:items AS JSON), :pickup_time, :payment_option, :price_total)`,
-      { user_id: userId, pickup_address_id, delivery_address_id, items: JSON.stringify(items||[]), pickup_time, payment_option, price_total: price_total||0 }
-    );
+    // Prisma handles JSON directly; Datetime expects JS Date
+    const order_id = randomUUID();
 
-    const [row] = await pool.query(`SELECT * FROM orders WHERE order_id = (SELECT order_id FROM orders ORDER BY created_at DESC LIMIT 1)`);
-    const order = row[0];
+    const [order] = await prisma.$transaction([
+      prisma.orders.create({
+        data: {
+          order_id,
+          user_id: userId,
+          pickup_address_id,
+          delivery_address_id,
+          items: items ?? [],                                       // Json
+          pickup_time: new Date(pickup_time),                       // DateTime(0)
+          payment_option,                                           // enum orders_payment_option ('cod'|'online')
+          price_total: `${price_total ?? 0}`,                       // Decimal -> pass as string
+          // created_at is default(now())
+        },
+      }),
+      prisma.order_status_events.create({
+        data: {
+          order_id,
+          status: OrderStatus?.PENDING ?? 'pending',                // enum order_status_events_status
+          note: 'Order created',
+          // created_at default(now())
+        },
+      }),
+    ]);
 
-    await pool.query(
-      `INSERT INTO order_status_events (order_id, status, note) VALUES (:order_id, :status, 'Order created')`,
-      { order_id: order.order_id, status: OrderStatus.PENDING }
-    );
-
+    // order is the first element (orders.create result)
     return order;
   },
 
-  async getOrder(userId, orderId){
-    const [rows] = await pool.query(`SELECT * FROM orders WHERE order_id=:order_id AND user_id=:user_id`, { order_id: orderId, user_id: userId });
-    return rows[0] || null;
+  async getOrder(userId, orderId) {
+    return prisma.orders.findFirst({
+      where: { order_id: orderId, user_id: userId },
+    });
   },
 
-  async listUserOrders(userId){
-    const [rows] = await pool.query(`SELECT * FROM orders WHERE user_id=:user_id ORDER BY created_at DESC`, { user_id: userId });
-    return rows;
+  async listUserOrders(userId) {
+    return prisma.orders.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
   },
 
-  async track(orderId){
-    const [events] = await pool.query(`SELECT status, note, created_at FROM order_status_events WHERE order_id=:order_id ORDER BY id ASC`, { order_id: orderId });
-    return events;
+  async track(orderId) {
+    return prisma.order_status_events.findMany({
+      where: { order_id: orderId },
+      select: { status: true, note: true, created_at: true },
+      orderBy: { id: 'asc' },
+    });
   },
 
-  async setStatus(orderId, status, staffId){
-    await pool.query(`UPDATE orders SET status=:status WHERE order_id=:order_id`, { status, order_id: orderId });
-    await pool.query(`INSERT INTO order_status_events (order_id, status, staff_id) VALUES (:order_id, :status, :staff_id)`, { order_id: orderId, status, staff_id: staffId || null });
+  async setStatus(orderId, status, staffId) {
+    await prisma.$transaction([
+      prisma.orders.update({
+        where: { order_id: orderId },
+        data: { status }, // enum orders_status
+      }),
+      prisma.order_status_events.create({
+        data: {
+          order_id: orderId,
+          status,           // enum order_status_events_status (values overlap with orders_status)
+          staff_id: staffId ?? null,
+        },
+      }),
+    ]);
   },
 
-  async assign(orderId, staffId){
-    await pool.query(`UPDATE orders SET staff_id=:staff_id WHERE order_id=:order_id`, { order_id: orderId, staff_id: staffId });
-    await pool.query(`INSERT INTO order_status_events (order_id, status, staff_id, note) VALUES (:order_id, 'pending', :staff_id, 'Assigned to staff')`, { order_id: orderId, staff_id: staffId });
-  }
+  async assign(orderId, staffId) {
+    await prisma.$transaction([
+      prisma.orders.update({
+        where: { order_id: orderId },
+        data: { staff_id: staffId },
+      }),
+      prisma.order_status_events.create({
+        data: {
+          order_id: orderId,
+          status: 'pending',        // per your original code
+          staff_id: staffId,
+          note: 'Assigned to staff',
+        },
+      }),
+    ]);
+  },
 };
