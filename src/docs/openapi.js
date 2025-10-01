@@ -4,7 +4,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 const definition = {
   openapi: '3.1.0',
   info: {
-    title: 'Laundry Service API Test',
+    title: 'Laundry Service API Test new',
     version: '1.0.0',
     description: 'Express.js MVC + MySQL + Email OTP — Customer, Staff, Admin APIs',
   },
