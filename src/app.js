@@ -15,6 +15,11 @@ const app = express();
 // Security & middleware
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
