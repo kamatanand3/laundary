@@ -7,7 +7,7 @@ import { assertDbConnection } from "./config/db.js";
   await assertDbConnection(); // check DB before starting server
 
   const PORT = env.port || 4000;
-  app.listen(PORT, () => {
-    console.log(`🚀 API running at http://127.0.0.1:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 API running at http://0.0.0.0:${PORT}`);
   });
 })();
